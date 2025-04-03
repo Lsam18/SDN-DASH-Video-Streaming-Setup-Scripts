@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# Update and install basic dependencies
+sudo apt-get update
+sudo apt-get install -y apache2 python3 python3-pip mininet nodejs npm wget
+
+# Install FFmpeg
+cd /usr/local/bin
+sudo wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+sudo tar -xvf ffmpeg-release-amd64-static.tar.xz
+cd ffmpeg-*-static
+sudo mv ffmpeg /usr/bin/
+sudo mv ffprobe /usr/bin/
+cd ~  # Return to home directory
+
+# Install MP4Box (GPAC)
+wget https://github.com/gpac/gpac/releases/download/v2.5.0/gpac_2.5.0-ubuntu14.04_amd64.deb
+sudo dpkg -i gpac_2.5.0-ubuntu14.04_amd64.deb
+sudo apt-get install -f  # Fix dependencies if needed
+
+# Set up Apache for DASH content
+sudo mkdir -p /var/www/html/dash
+sudo chmod -R 755 /var/www/html/dash
+
+# Download Big Buck Bunny sample video
+wget -O bbb.mp4 https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4
+
+# Encode video into 4 representations using FFmpeg
+ffmpeg -i bbb.mp4 -c:v libx264 -b:v 300k -s 426x240 -r 24 -keyint_min 48 -g 48 -sc_threshold 0 -an bbb_240p.mp4
+ffmpeg -i bbb.mp4 -c:v libx264 -b:v 600k -s 640x360 -r 24 -keyint_min 48 -g 48 -sc_threshold 0 -an bbb_360p.mp4
+ffmpeg -i bbb.mp4 -c:v libx264 -b:v 1200k -s 854x480 -r 24 -keyint_min 48 -g 48 -sc_threshold 0 -an bbb_480p.mp4
+ffmpeg -i bbb.mp4 -c:v libx264 -b:v 2400k -s 1280x720 -r 24 -keyint_min 48 -g 48 -sc_threshold 0 -an bbb_720p.mp4
+
+# Generate DASH segments using MP4Box
+mp4box -dash 4000 -frag 4000 -rap -segment-name segment_ -out /var/www/html/dash/bbb.mpd bbb_240p.mp4 bbb_360p.mp4 bbb_480p.mp4 bbb_720p.mp4
+
+# Restart Apache to apply changes
+sudo service apache2 restart
+
+# Install HTTP server for DASH.js (optional, if needed)
+sudo npm install -g http-server
+
+# Clean up temporary files
+rm -rf ffmpeg-release-amd64-static.tar.xz ffmpeg-*-static gpac_2.5.0-ubuntu14.04_amd64.deb bbb.mp4 bbb_240p.mp4 bbb_360p.mp4 bbb_480p.mp4 bbb_720p.mp4
+
+echo "Setup completed successfully!"

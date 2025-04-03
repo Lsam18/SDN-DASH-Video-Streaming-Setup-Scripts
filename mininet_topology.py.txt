@@ -1,0 +1,40 @@
+from mininet.net import Mininet
+from mininet.node import Controller, RemoteController
+from mininet.cli import CLI
+from mininet.log import setLogLevel, info
+
+def create_topology():
+    net = Mininet(controller=RemoteController)
+
+    # Add OpenDaylight controller
+    odl_controller = net.addController('c0', controller=RemoteController, ip='192.168.1.7', port=6633)
+
+    # Add hosts
+    h1 = net.addHost('h1', ip='10.0.0.1')
+    h2 = net.addHost('h2', ip='10.0.0.2')
+
+    # Add switch
+    s1 = net.addSwitch('s1')
+
+    # Add links
+    net.addLink(h1, s1)
+    net.addLink(h2, s1)
+
+    # Start network
+    net.start()
+
+    # Start HTTP server on h1
+    h1.cmd('python3 -m http.server 80 &')
+
+    # Start Chromium on h2
+    h2.cmd('chromium-browser --no-sandbox http://10.0.0.1/dash/bbb.mpd &')
+
+    # Open CLI
+    CLI(net)
+
+    # Stop network
+    net.stop()
+
+if __name__ == '__main__':
+    setLogLevel('info')
+    create_topology()
